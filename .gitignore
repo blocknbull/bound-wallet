@@ -1,0 +1,14 @@
+.DS_Store
+*.log
+node_modules/
+dist/
+contract/target/
+reputation/target/
+.bound/
+*.testnet.json
+*.mainnet.json
+.near-credentials/
+brand/bound-brand-pack.zip
+dashboard/.vercel/
+site/.vercel/
+.vercel/
