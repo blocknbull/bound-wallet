@@ -63,7 +63,7 @@
   @media (max-width:900px){.hero-mark{right:4vw;top:auto;bottom:2%;width:34vw;opacity:.6;transform:none;animation:none}.hero-mark img{animation:none}}
   .eyebrow{display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 9px;border-radius:999px;border:1px solid var(--line);background:var(--glass);font-size:13px;color:var(--muted);font-weight:500;letter-spacing:0}
   .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(74,222,128,.15)}
-  h1{font-size:clamp(40px,6.2vw,84px);line-height:1.02;letter-spacing:-.04em;font-weight:600;margin:26px 0 24px;max-width:16ch}
+  h1{font-size:clamp(46px,7.6vw,108px);line-height:.98;letter-spacing:-.045em;font-weight:600;margin:28px 0 26px;max-width:13ch}
   .lead{font-size:clamp(18px,1.6vw,21px);color:var(--muted);max-width:52ch;margin:0 0 36px;line-height:1.55}
   .cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   .cta .meta{font-size:13px;color:var(--faint);margin-left:6px}
@@ -83,9 +83,9 @@
   .strip .names{display:flex;gap:30px;flex-wrap:wrap;color:var(--muted);font-weight:600;font-size:15px;letter-spacing:-.01em}
   .strip .names span{opacity:.75;transition:opacity .2s}.strip .names span:hover{opacity:1;color:var(--ink)}
 
-  section{padding:120px 0}
+  section{padding:150px 0}
   .kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--violet);font-weight:600;margin-bottom:18px}
-  h2{font-size:clamp(34px,4.6vw,60px);line-height:1.02;letter-spacing:-.04em;font-weight:600;margin:0 0 18px;max-width:18ch}
+  h2{font-size:clamp(36px,5.2vw,68px);line-height:1;letter-spacing:-.042em;font-weight:600;margin:0 0 18px;max-width:18ch}
   .sub{color:var(--muted);font-size:18px;max-width:56ch;margin:0 0 56px;line-height:1.55}
 
   /* pillars */
@@ -188,8 +188,8 @@
 <main>
 <header class="hero"><div class="hero-bg"></div><div class="hero-mark" aria-hidden="true"><img src="/assets/mark-bg.png" alt="" width="391" height="555" /></div><div class="wrap">
   <div class="eyebrow reveal"><i></i>Live on NEAR mainnet · open source</div>
-  <h1 class="reveal d1">A wallet for AI agents with limits the agent cannot change.</h1>
-  <p class="lead reveal d2">Caps, allowlists, approvals — enforced by a contract, not a prompt. The agent's key can call exactly one method. Every decision lands on chain.</p>
+  <h1 class="reveal d1">Your agent can spend. It cannot overspend.</h1>
+  <p class="lead reveal d2">A wallet for AI agents on NEAR. Limits enforced by a contract, not a prompt — the agent's key can call exactly one method, and every decision lands on chain.</p>
   <div class="cta reveal d3">
     <a class="btn primary" href="https://boundwallet-app.vercel.app">Open the dashboard <span class="arr">→</span></a>
     <a class="btn" href="https://github.com/blocknbull/bound-wallet">Source on GitHub</a>
@@ -258,7 +258,7 @@
   <div class="story">
     <div>
       <div class="kicker reveal">Tripwire</div>
-      <h2 class="reveal d1">Repeated denials suspend the agent.</h2>
+      <h2 class="reveal d1">Keeps probing? Gets cut off.</h2>
       <p class="sub reveal d2">Pick a denial count and a window. Hit it, and the contract suspends the agent until you lift it. This sequence was recorded by <span class="mono" style="font-size:14px;color:var(--lavender)">guard.reins.testnet</span> on 25 October, tripwire set to 2 denials per hour.</p>
       <a class="btn reveal d3" href="https://testnet.nearblocks.io/address/guard.reins.testnet">See the account on NearBlocks <span class="arr">→</span></a>
     </div>
