@@ -189,7 +189,7 @@
 <header class="hero"><div class="hero-bg"></div><div class="hero-mark" aria-hidden="true"><img src="/assets/mark-bg.png" alt="" width="391" height="555" /></div><div class="wrap">
   <div class="eyebrow reveal"><i></i>Live on NEAR mainnet · open source</div>
   <h1 class="reveal d1">A wallet for AI agents with limits the agent cannot change.</h1>
-  <p class="lead reveal d2">Bound is a NEAR smart contract that holds the funds. You set spending limits, who can be paid, and an amount above which the agent has to ask you. The agent gets a key that can only call one method on that contract. Every decision it makes is recorded on chain.</p>
+  <p class="lead reveal d2">Caps, allowlists, approvals — enforced by a contract, not a prompt. The agent's key can call exactly one method. Every decision lands on chain.</p>
   <div class="cta reveal d3">
     <a class="btn primary" href="https://boundwallet-app.vercel.app">Open the dashboard <span class="arr">→</span></a>
     <a class="btn" href="https://github.com/blocknbull/bound-wallet">Source on GitHub</a>
@@ -205,18 +205,18 @@
 <section id="how"><div class="wrap">
   <div class="kicker reveal">Why</div>
   <h2 class="reveal d1">A NEAR access key limits gas, not money.</h2>
-  <p class="sub reveal d2">The usual way to give an agent a wallet is a function-call key. Its allowance caps the gas the key can spend. It does not cap the value a call can move. A key scoped to a token's transfer method can send the entire balance in one call. Bound puts a contract between the key and the money.</p>
+  <p class="sub reveal d2">A key scoped to a token transfer can still drain the balance in one call — the allowance caps gas, not value. Bound puts a contract between the key and the money.</p>
   <div class="pillars">
-    <div class="pillar reveal"><div class="n">01</div><h3>The owner writes the policy.</h3><p>Maximum per action and per rolling window, in NEAR or in dollars. A receiver allowlist, or approval for the first payment to anyone new. Which contracts and methods may be called. Active hours. A rate limit. An approval threshold.</p></div>
-    <div class="pillar reveal d1"><div class="n">02</div><h3>The agent gets a key scoped to <span class="mono" style="font-size:14px;color:var(--lavender)">execute</span>.</h3><p>It is a normal NEAR function-call key, restricted to one contract and one method. The contract evaluates the policy before it moves anything. Owner methods check the caller's account and reject the agent.</p></div>
-    <div class="pillar reveal d2"><div class="n">03</div><h3>Decisions are written on chain.</h3><p>Executed, denied with the reason, queued for the owner, approved, rejected. The contract keeps its last 100 decisions and emits a NEP-297 event for each. A registry contract turns that history into a score per agent key.</p></div>
+    <div class="pillar reveal"><div class="n">01</div><h3>You write the rules once.</h3><p>Per-action and daily caps, in NEAR or dollars. Who can be paid. What can be called. When. And an amount above which the agent must ask you.</p></div>
+    <div class="pillar reveal d1"><div class="n">02</div><h3>The agent gets a key scoped to <span class="mono" style="font-size:14px;color:var(--lavender)">execute</span>.</h3><p>A normal NEAR function-call key, locked to one contract and one method. The policy runs before anything moves.</p></div>
+    <div class="pillar reveal d2"><div class="n">03</div><h3>Every decision is public.</h3><p>Executed, denied with the reason, queued, approved. The contract keeps its last 100 decisions; a registry turns them into a score per agent key.</p></div>
   </div>
 </div></section>
 
 <section id="product"><div class="wrap">
   <div class="kicker reveal">Dashboard</div>
   <h2 class="reveal d1">Reads from the chain. Signs with your wallet.</h2>
-  <p class="sub reveal d2">A web app that installs to a phone. It needs no server: state comes from RPC view calls, and owner actions are signed with MyNearWallet or Meteor. The numbers below are from a testnet wallet.</p>
+  <p class="sub reveal d2">Installs to your phone. No server, no indexer: state is read from RPC, actions sign with MyNearWallet or Meteor. Real testnet numbers below.</p>
   <div class="product">
     <div class="tabs reveal" id="tabs">
       <div class="tab active" data-pane="p1"><h4><span class="k">01</span>Home</h4><p>Balance free for agents, the pause switch, and anything waiting for approval.</p></div>
@@ -259,7 +259,7 @@
     <div>
       <div class="kicker reveal">Tripwire</div>
       <h2 class="reveal d1">Repeated denials suspend the agent.</h2>
-      <p class="sub reveal d2">A policy can set a number of denials and a window. When an agent hits that count, the contract marks it suspended and denies everything until the owner lifts it. This is the sequence recorded by <span class="mono" style="font-size:14px;color:var(--lavender)">guard.reins.testnet</span> on 25 October with the tripwire set to 2 denials per hour.</p>
+      <p class="sub reveal d2">Pick a denial count and a window. Hit it, and the contract suspends the agent until you lift it. This sequence was recorded by <span class="mono" style="font-size:14px;color:var(--lavender)">guard.reins.testnet</span> on 25 October, tripwire set to 2 denials per hour.</p>
       <a class="btn reveal d3" href="https://testnet.nearblocks.io/address/guard.reins.testnet">See the account on NearBlocks <span class="arr">→</span></a>
     </div>
     <div class="timeline reveal d2">
@@ -277,7 +277,7 @@
     <div>
       <div class="kicker reveal">For agents</div>
       <h2 class="reveal d1">One MCP server, four tools.</h2>
-      <p class="sub reveal d2" style="margin-bottom:0">The config holds the agent's function-call key. If it leaks, the holder gets the same policy the agent had, nothing more. The owner can suspend or delete the key at any time.</p>
+      <p class="sub reveal d2" style="margin-bottom:0">The config holds a key that can only call <span class="mono" style="font-size:14px;color:var(--lavender)">execute</span>. If it leaks, the thief inherits the policy — nothing more.</p>
       <div class="list reveal d3">
         <div><b>bound_status</b><span>Policy, remaining budget this window, counters, reputation if a registry is configured.</span></div>
         <div><b>bound_check</b><span>Evaluates an action without executing it. Returns allowed, needs approval, or the denial reason.</span></div>
@@ -315,7 +315,7 @@
 
 <section><div class="wrap">
   <div class="kicker reveal">Comparison</div>
-  <h2 class="reveal d1">A function-call key alone, and the same key behind Bound.</h2>
+  <h2 class="reveal d1">The same key, with and without Bound.</h2>
   <table class="reveal d3">
     <thead><tr><th></th><th>Function-call key on an account</th><th>Function-call key on a Bound wallet</th></tr></thead>
     <tbody>
@@ -331,8 +331,8 @@
 
 <section class="final"><div class="wrap">
   <div class="kicker reveal">Try it</div>
-  <h2 class="reveal d1" style="max-width:20ch">Deploy a wallet on testnet in a few minutes.</h2>
-  <p class="sub reveal d2" style="margin:0 auto 32px">Build the contract, deploy it to a sub-account, register an agent, and run the demo script. The README has the exact commands.</p>
+  <h2 class="reveal d1" style="max-width:20ch">Give your agent money. Keep the limits.</h2>
+  <p class="sub reveal d2" style="margin:0 auto 32px">Deploy to a testnet sub-account and hand over one key. The README has the exact commands.</p>
   <div class="cta reveal d3" style="justify-content:center">
     <a class="btn primary" href="https://github.com/blocknbull/bound-wallet">Read the README <span class="arr">→</span></a>
     <a class="btn" href="https://boundwallet-app.vercel.app">Open the dashboard</a>
