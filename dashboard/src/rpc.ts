@@ -15,7 +15,7 @@ export const RPC: Record<Network, string> = {
 /** Default Bound Reputation registry per network. Override in localStorage key `bound.registry`. */
 export const REGISTRY: Record<Network, string | null> = {
   testnet: "reputation.reins.testnet",
-  mainnet: null,
+  mainnet: "reputation.boundwallet.near",
 };
 
 export function registryId(network: Network): string | null {

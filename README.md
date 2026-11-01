@@ -18,6 +18,8 @@ The human sets the rules once. The agent can never exceed them. Every decision i
 
 Built for the NEAR Hackathon, track **AI Security & Defense** (also Agent Economy, Autonomous Business). Design notes in [docs/DESIGN.md](docs/DESIGN.md).
 
+Live on mainnet: wallet [`agents.boundwallet.near`](https://nearblocks.io/address/agents.boundwallet.near), registry [`reputation.boundwallet.near`](https://nearblocks.io/address/reputation.boundwallet.near), [dashboard](https://boundwallet-app.vercel.app), [site](https://boundwallet.vercel.app).
+
 ## Layout
 
 ```
