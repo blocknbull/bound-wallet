@@ -1,0 +1,28 @@
+{
+  "name": "bound-wallet",
+  "version": "0.1.0",
+  "description": "SDK, CLI and MCP server for Bound Wallet, the policy-enforced agent wallet on NEAR",
+  "type": "module",
+  "bin": {
+    "bound": "./dist/cli.js",
+    "bound-mcp": "./dist/mcp.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cli": "tsx src/cli.ts",
+    "mcp": "tsx src/mcp.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "near-api-js": "^5.1.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -8,7 +8,15 @@ reputation/target/
 *.testnet.json
 *.mainnet.json
 .near-credentials/
-brand/bound-brand-pack.zip
+.claude/
+brand/
+docs/PLAN.md
+docs/LAUNCH.md
+docs/COMMUNITY.md
+docs/SUBMISSION.md
+docs/X_CONTENT.md
+docs/X_PROFILE.md
 dashboard/.vercel/
 site/.vercel/
 .vercel/
+*.tsbuildinfo

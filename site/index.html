@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bound — a wallet for AI agents with limits the agent cannot change</title>
+<meta name="description" content="A NEAR smart contract wallet for AI agents. The owner sets spending limits, allowlists and an approval threshold; the agent holds a key that can only call one method. Every decision is recorded on chain." />
+<meta property="og:title" content="Bound — a wallet for AI agents with limits the agent cannot change" />
+<meta property="og:description" content="Spending limits, allowlists and approvals enforced by a NEAR contract. Every decision on chain." />
+<meta property="og:image" content="/assets/og.jpg" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@boundwallet" />
+<meta name="twitter:image" content="/assets/og.jpg" />
+<meta name="theme-color" content="#050508" />
+<link rel="icon" href="/assets/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="/assets/icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#050508; --bg2:#0a0a10; --ink:#f4f2ff; --muted:#9a93b8; --faint:#5e5a78;
+    --line:rgba(196,185,255,.10); --glass:rgba(255,255,255,.035);
+    --violet:#8b7cf6; --lavender:#c4b9ff; --deep:#5a48d6;
+    --green:#4ade80; --red:#ff6b7a; --amber:#f5c451;
+    --sans:"Inter Tight",-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-.012em;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:rgba(139,124,246,.35)}
+  .wrap{width:min(1180px,calc(100% - 48px));margin:0 auto}
+  .mono{font-family:var(--mono)}
+
+  /* grain + glow */
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.06;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  main{position:relative;z-index:1}
+
+  /* nav */
+  .nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+  .nav.scrolled{background:rgba(5,5,8,.72);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border-color:var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:17px;letter-spacing:-.02em}
+  .brand img{width:30px;height:30px;border-radius:9px}
+  .links{display:flex;align-items:center;gap:30px;font-size:14px;color:var(--muted);font-weight:500}
+  .links a:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:600;font-size:15px;border:1px solid var(--line);background:var(--glass);color:var(--ink);transition:transform .2s cubic-bezier(.2,.8,.2,1),background .2s,border-color .2s;white-space:nowrap}
+  .btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.07);border-color:rgba(196,185,255,.25)}
+  .btn.primary{background:var(--ink);color:#0a0a10;border-color:transparent}
+  .btn.primary:hover{background:#fff}
+  .btn.small{padding:9px 16px;font-size:14px}
+  .btn .arr{transition:transform .2s} .btn:hover .arr{transform:translateX(3px)}
+
+  /* hero */
+  .hero{position:relative;min-height:100svh;display:grid;align-items:center;padding:140px 0 80px;overflow:hidden}
+  .hero-bg{position:absolute;inset:0;z-index:-1;background:radial-gradient(900px 700px at 78% 45%,rgba(90,72,214,.22),transparent 60%),radial-gradient(1200px 800px at 20% 0%,rgba(139,124,246,.08),transparent 60%);opacity:0;animation:fadeIn 1.2s ease .1s forwards}
+  .hero-mark{position:absolute;right:max(6vw,calc((100vw - 1180px)/2 + 40px));top:calc(50% + 24px);width:clamp(200px,22vw,340px);transform:translateY(-50%);z-index:-1;pointer-events:none;opacity:0;animation:markIn 1.8s cubic-bezier(.2,.8,.2,1) .25s forwards}
+  .hero-mark img{width:100%;height:auto;display:block;filter:drop-shadow(0 0 40px rgba(139,124,246,.22)) drop-shadow(0 30px 60px rgba(0,0,0,.5));animation:float 9s ease-in-out infinite}
+  .hero-mark::before{content:"";position:absolute;inset:-35%;background:radial-gradient(closest-side,rgba(139,124,246,.16),transparent 70%);filter:blur(30px);z-index:-1}
+  @keyframes markIn{from{opacity:0;transform:translateY(-44%) scale(.96)}to{opacity:1;transform:translateY(-50%) scale(1)}}
+  @keyframes float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(2deg)}}
+  @media (max-width:900px){.hero-mark{right:4vw;top:auto;bottom:2%;width:34vw;opacity:.6;transform:none;animation:none}.hero-mark img{animation:none}}
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 9px;border-radius:999px;border:1px solid var(--line);background:var(--glass);font-size:13px;color:var(--muted);font-weight:500;letter-spacing:0}
+  .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(74,222,128,.15)}
+  h1{font-size:clamp(40px,6.2vw,84px);line-height:1.02;letter-spacing:-.04em;font-weight:600;margin:26px 0 24px;max-width:16ch}
+  .lead{font-size:clamp(18px,1.6vw,21px);color:var(--muted);max-width:52ch;margin:0 0 36px;line-height:1.55}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .cta .meta{font-size:13px;color:var(--faint);margin-left:6px}
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .d1{transition-delay:.08s}.d2{transition-delay:.18s}.d3{transition-delay:.28s}.d4{transition-delay:.38s}
+  /* hero entrance needs no script */
+  .hero .reveal{transition:none;animation:rise .9s cubic-bezier(.2,.8,.2,1) both}
+  .hero .d1{animation-delay:.1s}.hero .d2{animation-delay:.22s}.hero .d3{animation-delay:.34s}
+  @keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+  @keyframes fadeIn{to{opacity:1}}
+
+  /* harness strip */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:22px 0;background:rgba(10,10,16,.6)}
+  .strip .wrap{display:flex;align-items:center;gap:36px;flex-wrap:wrap;justify-content:space-between}
+  .strip .l{font-size:13px;color:var(--faint);font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+  .strip .names{display:flex;gap:30px;flex-wrap:wrap;color:var(--muted);font-weight:600;font-size:15px;letter-spacing:-.01em}
+  .strip .names span{opacity:.75;transition:opacity .2s}.strip .names span:hover{opacity:1;color:var(--ink)}
+
+  section{padding:120px 0}
+  .kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--violet);font-weight:600;margin-bottom:18px}
+  h2{font-size:clamp(34px,4.6vw,60px);line-height:1.02;letter-spacing:-.04em;font-weight:600;margin:0 0 18px;max-width:18ch}
+  .sub{color:var(--muted);font-size:18px;max-width:56ch;margin:0 0 56px;line-height:1.55}
+
+  /* pillars */
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .pillar{position:relative;padding:34px 30px 30px;border-radius:28px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));overflow:hidden;transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .35s}
+  .pillar:hover{transform:translateY(-4px);border-color:rgba(196,185,255,.28)}
+  .pillar::before{content:"";position:absolute;inset:-40% auto auto -20%;width:60%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(139,124,246,.22),transparent 60%);opacity:0;transition:opacity .4s}
+  .pillar:hover::before{opacity:1}
+  .pillar .n{font-family:var(--mono);font-weight:500;font-size:14px;letter-spacing:.1em;line-height:1;color:var(--lavender);margin-bottom:22px}
+  .pillar h3{font-size:22px;letter-spacing:-.025em;margin:0 0 10px;font-weight:600}
+  .pillar p{margin:0;color:var(--muted);font-size:15.5px;line-height:1.55}
+
+  /* product */
+  .product{display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center}
+  .tabs{display:flex;flex-direction:column;gap:6px}
+  .tab{padding:22px 24px;border-radius:20px;border:1px solid transparent;cursor:pointer;transition:background .25s,border-color .25s}
+  .tab h4{margin:0 0 6px;font-size:19px;letter-spacing:-.02em;font-weight:600;display:flex;align-items:center;gap:12px}
+  .tab h4 .k{font-family:var(--mono);font-size:12px;color:var(--faint);font-weight:500}
+  .tab p{margin:0;color:var(--muted);font-size:15px;line-height:1.5;max-width:44ch}
+  .tab.active{background:var(--glass);border-color:var(--line)}
+  .tab.active h4 .k{color:var(--violet)}
+  .device{position:relative;margin:0 auto;width:min(380px,100%);aspect-ratio:9/18.5;border-radius:44px;background:#0d0d14;border:1px solid rgba(196,185,255,.18);box-shadow:0 40px 100px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.6),0 0 80px rgba(139,124,246,.12);padding:14px;overflow:hidden}
+  .device::before{content:"";position:absolute;top:16px;left:50%;transform:translateX(-50%);width:110px;height:28px;border-radius:999px;background:#000;z-index:2}
+  .screen{position:absolute;inset:14px;border-radius:32px;background:radial-gradient(600px 300px at 50% -100px,#1a1630,#0a0a10 60%);overflow:hidden}
+  .pane{position:absolute;inset:0;padding:64px 18px 18px;opacity:0;transform:translateY(8px) scale(.99);transition:opacity .5s cubic-bezier(.2,.8,.2,1),transform .5s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+  .pane.active{opacity:1;transform:none}
+  .card{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:14px;margin-bottom:9px;font-size:13.5px}
+  .card.hero-card{text-align:center;padding:20px 14px}
+  .card .big{font-size:34px;font-weight:600;letter-spacing:-.04em;margin:4px 0 2px}
+  .card .m{color:var(--muted);font-size:12px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.06);color:var(--muted)}
+  .pill.g{background:rgba(74,222,128,.14);color:var(--green)} .pill.r{background:rgba(255,107,122,.14);color:var(--red)} .pill.a{background:rgba(245,196,81,.14);color:var(--amber)} .pill.v{background:rgba(139,124,246,.18);color:var(--lavender)}
+  .meter{height:5px;border-radius:3px;background:rgba(255,255,255,.07);margin-top:10px;overflow:hidden}.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--deep),var(--lavender));border-radius:3px;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+  .pane.active .meter i{width:var(--w,40%)}
+  .sw{width:40px;height:24px;border-radius:12px;background:rgba(255,255,255,.1);position:relative;flex:none}.sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .3s}.sw.on{background:var(--red)}.sw.on::after{transform:translateX(16px)}
+  .bar{display:flex;gap:6px;margin-top:10px}.bar b{flex:1;text-align:center;padding:10px;border-radius:12px;font-size:12px;font-weight:700}.bar .rej{background:rgba(255,107,122,.14);color:var(--red)}.bar .ok{background:rgba(74,222,128,.14);color:var(--green)}
+  .typed{color:var(--red);font-size:12px;margin-top:4px}
+  @media (max-width:900px){.product{grid-template-columns:1fr;gap:36px}.pillars{grid-template-columns:1fr}}
+
+  /* tripwire story */
+  .story{display:grid;grid-template-columns:.9fr 1.1fr;gap:60px;align-items:start}
+  .timeline{position:relative;padding-left:28px}
+  .timeline::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:1px;background:linear-gradient(180deg,var(--line),rgba(255,107,122,.5))}
+  .tl{position:relative;padding:14px 0 14px 10px}
+  .tl::before{content:"";position:absolute;left:-24px;top:22px;width:9px;height:9px;border-radius:50%;background:var(--faint);box-shadow:0 0 0 4px var(--bg)}
+  .tl.red::before{background:var(--red)}.tl.green::before{background:var(--green)}
+  .tl .t{font-size:16px;font-weight:600;letter-spacing:-.015em}.tl .s{color:var(--muted);font-size:14px;margin-top:2px}
+  .tl .code{font-family:var(--mono);font-size:12.5px;color:var(--lavender);margin-top:6px}
+  @media (max-width:900px){.story{grid-template-columns:1fr}}
+
+  /* code */
+  .codeblock{position:relative;border-radius:24px;border:1px solid var(--line);background:#0b0b12;padding:26px 28px;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .codeblock pre{margin:0;font-family:var(--mono);font-size:14px;line-height:1.7;color:#cfcbe6}
+  .codeblock .c{color:var(--faint)}.codeblock .k{color:var(--lavender)}.codeblock .s{color:#b5f5c8}
+  .codeblock .copy{position:absolute;top:16px;right:16px}
+  .split{display:grid;grid-template-columns:.9fr 1.1fr;gap:60px;align-items:center}
+  @media (max-width:900px){.split{grid-template-columns:1fr}}
+  .list{display:grid;gap:12px;margin-top:26px}
+  .list div{display:flex;gap:14px;align-items:flex-start;color:var(--muted);font-size:15.5px}
+  .list b{font-family:var(--mono);font-size:12px;color:var(--violet);background:rgba(139,124,246,.12);padding:4px 8px;border-radius:8px;flex:none;margin-top:2px}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .stat{padding:28px 26px;border-radius:24px;border:1px solid var(--line);background:var(--glass)}
+  .stat .v{font-size:40px;font-weight:600;letter-spacing:-.04em;line-height:1}
+  .stat .l{color:var(--muted);font-size:14px;margin-top:8px}
+  @media (max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+  /* compare */
+  table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:24px;overflow:hidden;background:var(--glass);font-size:15px}
+  th,td{padding:18px 22px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  th{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;background:rgba(255,255,255,.02)}
+  td:first-child{color:var(--muted);width:34%}
+  td .yes{color:var(--green)} td .no{color:var(--red)}
+
+  /* final */
+  .final{position:relative;text-align:center;padding:140px 0;overflow:hidden}
+  .final::before{content:"";position:absolute;inset:0;background:url(/assets/ribbon.jpg) center/cover no-repeat;opacity:.7;z-index:-1}
+  .final::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 50%,rgba(5,5,8,.2),rgba(5,5,8,.95));z-index:-1}
+  .final h2{margin:0 auto 18px;max-width:14ch}
+  footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--faint);font-size:14px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center}
+  footer a:hover{color:var(--ink)}
+  @media (max-width:760px){.links a:not(.btn.primary){display:none}.links{gap:0}.btn.small.primary{padding:9px 14px;font-size:13px}.nav .wrap{height:60px}.hero{padding:120px 0 60px}section{padding:80px 0}}
+  @media (prefers-reduced-motion:reduce){.reveal{transition:none;animation:none;opacity:1;transform:none}.hero-bg,.hero-mark{animation:none;opacity:1}.hero-mark img{animation:none}}
+</style>
+</head>
+<body>
+<nav class="nav" id="nav"><div class="wrap">
+  <a class="brand" href="#"><img src="/assets/icon.png" alt="" />Bound</a>
+  <div class="links">
+    <a href="#how">How it works</a><a href="#product">Dashboard</a><a href="#tripwire">Tripwire</a><a href="#agents">For agents</a>
+    <a class="btn small" href="https://x.com/boundwallet">@boundwallet</a>
+    <a class="btn small primary" href="https://boundwallet-app.vercel.app">Open dashboard <span class="arr">→</span></a>
+  </div>
+</div></nav>
+
+<main>
+<header class="hero"><div class="hero-bg"></div><div class="hero-mark" aria-hidden="true"><img src="/assets/mark-bg.png" alt="" width="391" height="555" /></div><div class="wrap">
+  <div class="eyebrow reveal"><i></i>Live on NEAR testnet · open source</div>
+  <h1 class="reveal d1">A wallet for AI agents with limits the agent cannot change.</h1>
+  <p class="lead reveal d2">Bound is a NEAR smart contract that holds the funds. You set spending limits, who can be paid, and an amount above which the agent has to ask you. The agent gets a key that can only call one method on that contract. Every decision it makes is recorded on chain.</p>
+  <div class="cta reveal d3">
+    <a class="btn primary" href="https://boundwallet-app.vercel.app">Open the dashboard <span class="arr">→</span></a>
+    <a class="btn" href="https://github.com/blocknbull/bound-wallet">Source on GitHub</a>
+    <span class="meta">Rust contract · TypeScript SDK · MCP server · MIT</span>
+  </div>
+</div></header>
+
+<div class="strip"><div class="wrap">
+  <span class="l">Connects through MCP</span>
+  <div class="names"><span>Claude Code</span><span>Claude Desktop</span><span>Codex</span><span>Cursor</span><span>OpenClaw</span><span>IronClaw</span></div>
+</div></div>
+
+<section id="how"><div class="wrap">
+  <div class="kicker reveal">Why</div>
+  <h2 class="reveal d1">A NEAR access key limits gas, not money.</h2>
+  <p class="sub reveal d2">The usual way to give an agent a wallet is a function-call key. Its allowance caps the gas the key can spend. It does not cap the value a call can move. A key scoped to a token's transfer method can send the entire balance in one call. Bound puts a contract between the key and the money.</p>
+  <div class="pillars">
+    <div class="pillar reveal"><div class="n">01</div><h3>The owner writes the policy.</h3><p>Maximum per action and per rolling window, in NEAR or in dollars. A receiver allowlist, or approval for the first payment to anyone new. Which contracts and methods may be called. Active hours. A rate limit. An approval threshold.</p></div>
+    <div class="pillar reveal d1"><div class="n">02</div><h3>The agent gets a key scoped to <span class="mono" style="font-size:14px;color:var(--lavender)">execute</span>.</h3><p>It is a normal NEAR function-call key, restricted to one contract and one method. The contract evaluates the policy before it moves anything. Owner methods check the caller's account and reject the agent.</p></div>
+    <div class="pillar reveal d2"><div class="n">03</div><h3>Decisions are written on chain.</h3><p>Executed, denied with the reason, queued for the owner, approved, rejected. The contract keeps its last 100 decisions and emits a NEP-297 event for each. A registry contract turns that history into a score per agent key.</p></div>
+  </div>
+</div></section>
+
+<section id="product"><div class="wrap">
+  <div class="kicker reveal">Dashboard</div>
+  <h2 class="reveal d1">Reads from the chain. Signs with your wallet.</h2>
+  <p class="sub reveal d2">A web app that installs to a phone. It needs no server: state comes from RPC view calls, and owner actions are signed with MyNearWallet or Meteor. The numbers below are from a testnet wallet.</p>
+  <div class="product">
+    <div class="tabs reveal" id="tabs">
+      <div class="tab active" data-pane="p1"><h4><span class="k">01</span>Home</h4><p>Balance free for agents, the pause switch, and anything waiting for approval.</p></div>
+      <div class="tab" data-pane="p2"><h4><span class="k">02</span>Policy</h4><p>The fields the contract enforces. Dollar budgets use a price the contract fetches from Ref Finance, the NEAR oracle, or the owner.</p></div>
+      <div class="tab" data-pane="p3"><h4><span class="k">03</span>Approvals</h4><p>Actions above the threshold wait here. Approving re-checks the policy before sending.</p></div>
+      <div class="tab" data-pane="p4"><h4><span class="k">04</span>Activity</h4><p>The contract's own decision log, with reasons.</p></div>
+    </div>
+    <div class="device reveal d2">
+      <div class="screen">
+        <div class="pane active" id="p1">
+          <div class="card hero-card"><div class="m">Available to agents</div><div class="big">0.55 <span class="m" style="font-size:16px">NEAR</span></div><div class="m">3.84 total · 3.29 locked for contract storage</div></div>
+          <div class="card row"><div><b>Agents are active</b><div class="m">Pause denies every action.</div></div><div class="sw"></div></div>
+          <div class="card row"><div><span class="pill a">1</span> <b style="margin-left:6px">Waiting for your approval</b></div><span class="m">›</span></div>
+          <div class="card"><div class="row"><div><b>buyer</b><div class="m">1.95 of 2 NEAR left this day</div></div><span class="pill r">2 denied</span></div><div class="meter" style="--w:3%"><i></i></div></div>
+        </div>
+        <div class="pane" id="p2">
+          <div class="card"><div class="m" style="margin-bottom:8px">Budget in</div><div class="row" style="gap:6px"><span class="pill" style="flex:1;justify-content:center">NEAR</span><span class="pill v" style="flex:1;justify-content:center">US dollars</span></div></div>
+          <div class="card"><div class="row"><div><div class="m">Max per action</div><b>$10.00</b></div><div style="text-align:right"><div class="m">Per day</div><b>$15.00</b></div></div></div>
+          <div class="card row"><div><b>Ask me above</b><div class="m">0.25 NEAR</div></div><span class="pill g">on</span></div>
+          <div class="card row"><div><b>Tripwire</b><div class="m">2 denials in 60 minutes</div></div><span class="pill g">on</span></div>
+          <div class="card row"><div><b>Cross-chain swaps</b><div class="m">NEAR Intents, counted against the caps</div></div><span class="pill g">on</span></div>
+        </div>
+        <div class="pane" id="p3">
+          <div class="card"><div class="row"><div><span class="pill a">Asked you</span><div style="margin-top:8px"><b>Pay reins.testnet</b></div><div class="m">buyer · just now</div></div><b style="font-size:20px">0.30 N</b></div><div class="bar"><b class="rej">Reject</b><b class="ok">Approve</b></div></div>
+          <div class="card"><div class="m">The policy allows 0.5 NEAR per action and asks above 0.25. This one waits for the owner.</div></div>
+        </div>
+        <div class="pane" id="p4">
+          <div class="card"><div class="row"><span class="pill g">Executed</span><b>0.1 N</b></div><div style="margin-top:6px"><b>Swap to USDC on Base → 0x1111…</b></div></div>
+          <div class="card"><div class="row"><span class="pill r">Denied</span><b>0.6 N</b></div><div style="margin-top:6px"><b>Pay reins.testnet</b></div><div class="typed">amount $12.00 exceeds max_per_tx $10.00</div></div>
+          <div class="card"><div class="row"><span class="pill r">Tripwire</span></div><div style="margin-top:6px"><b>Agent suspended automatically</b></div></div>
+          <div class="card"><div class="row"><span class="pill v">Reputation</span><b>28 · new</b></div><div class="m" style="margin-top:6px">3 scored decisions · 1 executed · 2 denied</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section id="tripwire"><div class="wrap">
+  <div class="story">
+    <div>
+      <div class="kicker reveal">Tripwire</div>
+      <h2 class="reveal d1">Repeated denials suspend the agent.</h2>
+      <p class="sub reveal d2">A policy can set a number of denials and a window. When an agent hits that count, the contract marks it suspended and denies everything until the owner lifts it. This is the sequence recorded by <span class="mono" style="font-size:14px;color:var(--lavender)">guard.reins.testnet</span> on 25 October with the tripwire set to 2 denials per hour.</p>
+      <a class="btn reveal d3" href="https://testnet.nearblocks.io/address/guard.reins.testnet">See the account on NearBlocks <span class="arr">→</span></a>
+    </div>
+    <div class="timeline reveal d2">
+      <div class="tl green"><div class="t">Pay reins.testnet · 0.05 N</div><div class="s">Receiver is on the allowlist. Sent.</div><div class="code">action_executed</div></div>
+      <div class="tl red"><div class="t">Pay stranger.testnet · 0.05 N</div><div class="s">receiver stranger.testnet not in allowlist</div><div class="code">action_denied</div></div>
+      <div class="tl red"><div class="t">Pay stranger.testnet · 0.05 N</div><div class="s">Second denial inside the window. Agent suspended.</div><div class="code">action_denied → agent_tripped</div></div>
+      <div class="tl red"><div class="t">Pay reins.testnet · 0.05 N</div><div class="s">Would have passed the policy. Denied because the agent is suspended.</div><div class="code">action_denied: agent is suspended</div></div>
+      <div class="tl green"><div class="t">Owner calls unsuspend</div><div class="s">From the agent's page in the dashboard, or the CLI.</div><div class="code">agent_unsuspended</div></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="agents"><div class="wrap">
+  <div class="split">
+    <div>
+      <div class="kicker reveal">For agents</div>
+      <h2 class="reveal d1">One MCP server, four tools.</h2>
+      <p class="sub reveal d2" style="margin-bottom:0">The config holds the agent's function-call key. If it leaks, the holder gets the same policy the agent had, nothing more. The owner can suspend or delete the key at any time.</p>
+      <div class="list reveal d3">
+        <div><b>bound_status</b><span>Policy, remaining budget this window, counters, reputation if a registry is configured.</span></div>
+        <div><b>bound_check</b><span>Evaluates an action without executing it. Returns allowed, needs approval, or the denial reason.</span></div>
+        <div><b>bound_execute</b><span>Submits the action. Returns Executed, Denied with the reason, or Queued with an id.</span></div>
+        <div><b>bound_explain_denial</b><span>Turns a denial reason into what the policy allows instead. Tells a suspended agent to stop retrying.</span></div>
+      </div>
+    </div>
+    <div class="codeblock reveal d2">
+      <button class="btn small copy" id="copy">Copy</button>
+<pre id="code">{
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"bound-wallet"</span>: {
+      <span class="k">"command"</span>: <span class="s">"node"</span>,
+      <span class="k">"args"</span>: [<span class="s">"sdk/dist/mcp.js"</span>],
+      <span class="k">"env"</span>: {
+        <span class="k">"NEAR_NETWORK"</span>: <span class="s">"testnet"</span>,
+        <span class="k">"BOUND_WALLET"</span>: <span class="s">"guard.reins.testnet"</span>,
+        <span class="k">"BOUND_AGENT_KEY"</span>: <span class="s">"ed25519:…"</span>  <span class="c">// function-call key, execute only</span>
+      }
+    }
+  }
+}</pre>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="stats">
+    <div class="stat reveal"><div class="v">1</div><div class="l">Method an agent key can call. Owner methods reject it at the contract and at the protocol.</div></div>
+    <div class="stat reveal d1"><div class="v">100</div><div class="l">Most recent decisions the contract stores. Older ones remain in transaction logs as events.</div></div>
+    <div class="stat reveal d2"><div class="v">27</div><div class="l">Tests: 13 unit tests on the policy engine, 14 end-to-end tests on a local NEAR sandbox.</div></div>
+    <div class="stat reveal d3"><div class="v">0</div><div class="l">Full-access keys a wallet needs. The owner upgrades it through the contract.</div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker reveal">Comparison</div>
+  <h2 class="reveal d1">A function-call key alone, and the same key behind Bound.</h2>
+  <table class="reveal d3">
+    <thead><tr><th></th><th>Function-call key on an account</th><th>Function-call key on a Bound wallet</th></tr></thead>
+    <tbody>
+      <tr><td>Value per call</td><td><span class="no">Unlimited.</span> The allowance is a gas budget.</td><td><span class="yes">Capped</span> per action and per window, in NEAR or dollars.</td></tr>
+      <tr><td>Receivers</td><td><span class="no">Any</span> account the method accepts.</td><td><span class="yes">Allowlist,</span> or owner approval for new receivers.</td></tr>
+      <tr><td>Large actions</td><td><span class="no">Sent.</span></td><td><span class="yes">Queued</span> above a threshold until the owner approves.</td></tr>
+      <tr><td>Repeated denials</td><td>Not observed.</td><td><span class="yes">Counted;</span> the tripwire suspends the agent.</td></tr>
+      <tr><td>Record</td><td>Transaction logs, if indexed.</td><td><span class="yes">Decision log in the contract,</span> with reasons, plus events.</td></tr>
+      <tr><td>Revoking</td><td>Delete the key.</td><td>Delete the key, or <span class="yes">suspend it and keep the history.</span></td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section class="final"><div class="wrap">
+  <div class="kicker reveal">Try it</div>
+  <h2 class="reveal d1" style="max-width:20ch">Deploy a wallet on testnet in a few minutes.</h2>
+  <p class="sub reveal d2" style="margin:0 auto 32px">Build the contract, deploy it to a sub-account, register an agent, and run the demo script. The README has the exact commands.</p>
+  <div class="cta reveal d3" style="justify-content:center">
+    <a class="btn primary" href="https://github.com/blocknbull/bound-wallet">Read the README <span class="arr">→</span></a>
+    <a class="btn" href="https://boundwallet-app.vercel.app">Open the dashboard</a>
+    <a class="btn" href="https://x.com/boundwallet">@boundwallet</a>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <div class="brand"><img src="/assets/icon.png" alt="" />Bound <span style="color:var(--faint);font-weight:400;margin-left:8px">· a NEAR Hackathon project, November 2026</span></div>
+  <div><a href="https://github.com/blocknbull/bound-wallet">GitHub</a> &nbsp;·&nbsp; <a href="https://x.com/boundwallet">X</a> &nbsp;·&nbsp; <a href="https://boundwallet-app.vercel.app">Dashboard</a></div>
+</div></footer>
+
+<script>
+  const nav=document.getElementById('nav');
+  addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>24),{passive:true});
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>{if(!el.closest('.hero'))io.observe(el)});
+  const tabs=[...document.querySelectorAll('.tab')],panes=[...document.querySelectorAll('.pane')];
+  let i=0,timer;
+  function show(n){i=n;tabs.forEach((t,k)=>t.classList.toggle('active',k===n));panes.forEach((p,k)=>p.classList.toggle('active',k===n))}
+  function auto(){clearInterval(timer);timer=setInterval(()=>show((i+1)%tabs.length),4200)}
+  tabs.forEach((t,k)=>t.addEventListener('click',()=>{show(k);auto()}));auto();
+  document.getElementById('copy').addEventListener('click',e=>{navigator.clipboard.writeText(document.getElementById('code').innerText);e.target.textContent='Copied';setTimeout(()=>e.target.textContent='Copy',1600)});
+  // subtle parallax on the hero backdrop
+  const mk=document.querySelector('.hero-mark');
+  if(matchMedia('(min-width:901px)').matches)addEventListener('scroll',()=>{if(scrollY<1200)mk.style.marginTop=`${scrollY*0.12}px`},{passive:true});
+</script>
+</body>
+</html>
