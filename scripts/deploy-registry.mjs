@@ -2,11 +2,16 @@
 // Deploy the Bound reputation registry as a sub-account of OWNER in one
 // transaction: create account, fund, add the owner's key, deploy, init.
 // Usage: OWNER=you.near [NAME=reputation] [BALANCE=2.2] node scripts/deploy-registry.mjs
-import { connect, keyStores, transactions, utils } from "near-api-js";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+// near-api-js is a dependency of the sdk; resolve it from there.
+const require = createRequire(join(here, "../sdk/package.json"));
+const { connect, keyStores, transactions, utils } = require("near-api-js");
 
 const OWNER = process.env.OWNER;
 if (!OWNER) { console.error("set OWNER=you.near"); process.exit(1); }
@@ -14,8 +19,7 @@ const NAME = process.env.NAME ?? "reputation";
 const BALANCE = process.env.BALANCE ?? "2.2";
 const NETWORK = process.env.NEAR_NETWORK ?? "mainnet";
 const REGISTRY = `${NAME}.${OWNER}`;
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const WASM = join(root, "contract/target/near/bound_reputation.wasm");
+const WASM = join(here, "../contract/target/near/bound_reputation.wasm");
 
 const credDir = join(homedir(), ".near-credentials");
 const keyStore = new keyStores.UnencryptedFileSystemKeyStore(credDir);
