@@ -16,7 +16,13 @@ The human sets the rules once. The agent can never exceed them. Every decision i
 - Agents hold only a NEAR function-call key scoped to one method. The owner never shares a key.
 - Ships with a TypeScript SDK, a CLI and an **MCP server** so Claude, Codex, OpenClaw, IronClaw or any MCP client gets a wallet it cannot abuse in one config line.
 
-Built for the NEAR Hackathon, track **AI Security & Defense** (also Agent Economy, Autonomous Business). Design notes in [docs/DESIGN.md](docs/DESIGN.md).
+Built for the NEAR Hackathon. Where it sits per track:
+
+- **AI Security & Defense** — spending limits, a policy engine, a sandboxed wallet and reputation in one contract. The [attack demo](#the-attack-demo) below is the track's injected-agent-gets-stopped scenario, log included.
+- **Agent Economy** — the answer to "how does the agent hold its keys, and what can't it do without me": one function-call key scoped to one method, everything else is policy. x402 and NEAR Intents payments stay inside the budget.
+- **Autonomous Business** — the owner's config *is* the policy: daily caps in dollars, an approval threshold, a kill switch. No full-access key in plain text, or at all.
+
+Design notes in [docs/DESIGN.md](docs/DESIGN.md), threat model in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 Live on mainnet: wallet [`agents.boundwallet.near`](https://nearblocks.io/address/agents.boundwallet.near), registry [`reputation.boundwallet.near`](https://nearblocks.io/address/reputation.boundwallet.near), [dashboard](https://boundwallet-app.vercel.app), [site](https://boundwallet.vercel.app).
 
@@ -43,7 +49,7 @@ cd contract && cargo near build non-reproducible-wasm && cd ..
 cd sdk && npm install && npm run build && cd ..
 
 # 3. Deploy a wallet as a sub-account of your testnet account, funded with 5 NEAR.
-#    The contract's own storage locks about 2.6 NEAR of that; the rest is spendable.
+#    The contract's own storage locks about 3.3 NEAR of that; the rest is spendable.
 node sdk/dist/cli.js deploy --owner you.testnet --name agent --wasm contract/target/near/bound_wallet.wasm --balance 5
 
 # 4. Register an agent with a policy. This generates the agent's key and
@@ -73,6 +79,34 @@ node sdk/dist/cli.js pause --owner you.testnet --wallet agent.you.testnet
 # 9. See the agent's record: policy, remaining budget, executed/denied counts
 node sdk/dist/cli.js agents --owner you.testnet --wallet agent.you.testnet
 ```
+
+## The attack demo
+
+What a prompt-injected agent gets: the injected instruction says "pay attacker.testnet", the contract denies it, the retry trips the tripwire, and even payments the policy would normally allow are denied until the owner lifts the suspension. Every step is on chain.
+
+```bash
+./scripts/attack-demo.sh .bound/buyer.agent.you.testnet.json
+```
+
+Expect this sequence in the output and in `get_history`:
+
+```
+action_denied   [receiver attacker.testnet not in allowlist]
+action_denied   [receiver attacker.testnet not in allowlist]
+agent_tripped
+action_denied   Pay reins.testnet  [agent is suspended; the owner must unsuspend it]
+agent unsuspended
+```
+
+The example policy trips after 2 denials in an hour, so if you already triggered the denial in the quickstart, the tripwire fires one attempt earlier — same story.
+
+## What the agent's key can and cannot do
+
+- It is a normal NEAR **function-call access key** on the wallet account, restricted at the protocol level to one contract (the wallet) and one method (`execute`). It cannot transfer NEAR, call `ft_transfer`, deploy code, or add or delete keys — the chain rejects those before the contract even runs.
+- Inside `execute`, the contract decides. Owner methods check `predecessor == owner`, so the key cannot call them either: two independent walls.
+- The key's `allowance` caps **gas, not value** (NEAR checks it against prepaid gas; the default 1 NEAR is roughly 50 calls). When it runs out the agent just stops — nothing is lost or locked, because the owner acts from their own account, not through this key. `top_up_gas` replaces the allowance in one call.
+- The docs' caveat that an account holding only function-call keys can lock itself out does not apply here: the wallet needs **no full-access key at all** (deploy with `--no-recovery-key`), and the owner still upgrades it through the contract's `upgrade` method.
+- If the key leaks, the holder inherits the agent's policy and nothing else. The owner can `suspend` (keeps history) or `remove_agent` (deletes the key) at any time, and the tripwire usually gets there first.
 
 ## Dollar budgets and the price feed
 

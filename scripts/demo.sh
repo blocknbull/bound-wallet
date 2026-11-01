@@ -20,7 +20,7 @@ export NEAR_NETWORK="${NEAR_NETWORK:-testnet}"
 
 step() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 
-step "1. deploy wallet $WALLET with ${BALANCE:-5} NEAR (about 2.6 NEAR is locked by contract storage)"
+step "1. deploy wallet $WALLET with ${BALANCE:-5} NEAR (about 3.3 NEAR is locked by contract storage)"
 $CLI deploy --owner "$OWNER" --name "$NAME" --wasm "$WASM" --balance "${BALANCE:-5}"
 
 step "2. register agent 'buyer' (allowlist: $FRIEND, 0.5 N per tx, 2 N per day, approval above 0.25 N)"

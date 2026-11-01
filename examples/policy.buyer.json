@@ -3,14 +3,32 @@
   "window_cap": "2000000000000000000000000",
   "window_secs": 86400,
   "max_tx_per_window": 20,
-  "receivers": { "Allowlist": ["vendor.testnet"] },
+  "receivers": {
+    "Allowlist": [
+      "vendor.testnet"
+    ]
+  },
   "calls": [
-    { "contract": "wrap.testnet", "methods": ["near_deposit", "ft_transfer"] }
+    {
+      "contract": "wrap.testnet",
+      "methods": [
+        "near_deposit",
+        "ft_transfer"
+      ]
+    }
   ],
   "tokens": [
-    { "token": "usdc.fakes.testnet", "max_per_tx": "25000000", "window_cap": "100000000" }
+    {
+      "token": "usdc.fakes.testnet",
+      "max_per_tx": "25000000",
+      "window_cap": "100000000"
+    }
   ],
   "active_hours_utc": null,
   "expires_at": null,
-  "approval_above": "250000000000000000000000"
+  "approval_above": "250000000000000000000000",
+  "tripwire": {
+    "max_denials": 2,
+    "window_secs": 3600
+  }
 }
