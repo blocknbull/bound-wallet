@@ -180,6 +180,30 @@ if (network === "mainnet") {
   server.tool("bound_swap_status", "Check a NEAR Intents swap by its deposit address.", { deposit_address: z.string() }, async ({ deposit_address }) => text(await swapStatus(deposit_address)));
 }
 
+server.tool(
+  "bound_pay_request",
+  "Fetch a URL that charges per request (x402). On a 402 the wallet pays the quoted price under its policy — capped, counted against the budget, denied over the limit — and the request is retried with the proof. Returns the response plus what was paid or why payment was refused.",
+  {
+    url: z.string().url(),
+    max_near: z.string().optional().describe("Client-side ceiling in NEAR on top of the policy (default from BOUND_X402_MAX, else 0.1)"),
+  },
+  async ({ url, max_near }) => {
+    const x402 = await import("./x402.js");
+    const agent = await agentP;
+    const r = await x402.fetchWithPayment(agent, url, undefined, {
+      maxYocto: NEAR(max_near ?? process.env.BOUND_X402_MAX ?? "0.1"),
+    });
+    const bodyText = await r.res.text();
+    return text({
+      status: r.res.status,
+      paid: r.paid && { near: fromYocto(r.paid.amountYocto), to: r.paid.payTo, tx_hash: r.paid.txHash },
+      payment_denied: r.wallet?.denied ?? null,
+      payment_queued_id: r.wallet?.queuedId ?? null,
+      body: bodyText.slice(0, 2000),
+    });
+  }
+);
+
 const registryId = process.env.BOUND_REGISTRY;
 if (registryId) {
   server.tool(

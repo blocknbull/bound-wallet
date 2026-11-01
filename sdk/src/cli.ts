@@ -76,6 +76,7 @@ Agent commands (sign with the agent's function-call key):
   exec   --wallet <id> --agent-key <ed25519:..> --action '<json>'
   check  --wallet <id> --agent-key <ed25519:..> --action '<json>'
   me     --wallet <id> --agent-key <ed25519:..>
+  fetch  --wallet <id> --agent-key <k> --url <u> [--max <near>]   pay a 402 through the wallet (x402)
 
 Swaps via NEAR Intents (mainnet only; agent key):
   swap-quote --wallet <id> --agent-key <k> --amount <near> --to usdc:base|<assetId> --recipient <addr>   dry quote
@@ -146,6 +147,22 @@ async function main() {
     const q = r.quote.quote;
     console.log(`${q.amountInFormatted} NEAR ($${q.amountInUsd}) -> ${q.amountOutFormatted} ($${q.amountOutUsd}) to ${need(args, "recipient")}, ~${q.timeEstimate}s`);
     if (cmd === "swap") print({ result: r.result, txHash: r.txHash, depositAddress: q.depositAddress, correlationId: r.quote.correlationId });
+    return;
+  }
+
+  if (cmd === "fetch") {
+    const x402 = await import("./x402.js");
+    const walletId = need(args, "wallet", "BOUND_WALLET");
+    const key = need(args, "agent-key", "BOUND_AGENT_KEY");
+    const agent = await BoundAgent.load(network, walletId, key);
+    const r = await x402.fetchWithPayment(agent, need(args, "url"), undefined, {
+      maxYocto: args.max ? NEAR(args.max as string) : undefined,
+    });
+    if (r.paid) console.log(`paid ${fromYocto(r.paid.amountYocto)} NEAR to ${r.paid.payTo}  (tx ${r.paid.txHash})`);
+    if (r.wallet?.denied) console.log(`payment denied: ${r.wallet.denied}`);
+    if (r.wallet?.queuedId != null) console.log(`payment queued for owner approval (id ${r.wallet.queuedId})`);
+    console.log(`HTTP ${r.res.status}`);
+    console.log(await r.res.text());
     return;
   }
 
@@ -299,7 +316,7 @@ async function main() {
       const agents = await owner.listAgents();
       for (const a of agents) {
         const rem = await owner.getRemaining(a.public_key);
-        console.log(`- ${a.label}  ${a.public_key}`);
+        console.log(`- ${a.label}  ${a.public_key}${a.suspended ? "  [SUSPENDED]" : ""}`);
         console.log(`    per-tx ${fromYocto(a.policy.max_per_tx)} N, window ${fromYocto(a.policy.window_cap)} N / ${a.policy.window_secs}s, remaining ${rem ? fromYocto(rem.native) : "?"} N`);
         console.log(`    executed ${a.stats.executed} denied ${a.stats.denied} queued ${a.stats.queued} approved ${a.stats.approved} rejected ${a.stats.rejected} failed ${a.stats.failed}`);
       }

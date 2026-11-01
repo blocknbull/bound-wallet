@@ -104,6 +104,22 @@ NEAR Intents has no testnet, so the live swap needs a mainnet wallet. Dry quotes
 
 MCP tools on mainnet: `bound_swap_quote`, `bound_swap`, `bound_swap_status`.
 
+## Pay-per-request (x402)
+
+Agents can buy API calls the x402 way — request, get a `402 Payment Required` with a price, pay, retry with proof — except the payment goes through the wallet's `execute`, so it is capped, counted against the window budget, queued above the approval threshold, and recorded on chain like any other spend. The existing NEAR x402 flow needs a key that can sign transfers; a Bound agent never holds one.
+
+```bash
+# a vendor that charges 0.05 N for /cheap and 0.4 N for /pricey
+PAYTO=you.testnet node examples/x402-server.mjs
+
+# the agent: pays /cheap and gets the data; /pricey queues for the owner
+bound fetch --url http://localhost:4402/cheap                  # paid 0.05 NEAR ... HTTP 200
+bound fetch --url http://localhost:4402/pricey                 # payment queued for owner approval
+bound fetch --url http://localhost:4402/cheap --max 0.01       # refused client-side, nothing submitted
+```
+
+Or end to end in one script: `./scripts/x402-demo.sh .bound/<agent>.json <payto>`. The server side is two helpers (`paymentRequired`, `verifyPayment`) from `sdk/dist/x402.js`: the proof is the hash of the execute transaction, verified against the chain and replay-protected. MCP clients get the same thing as the `bound_pay_request` tool.
+
 ## Reputation registry
 
 Every denial, execution, approval and failure a wallet records is a data point about the agent behind the key. The registry contract in `reputation/` pulls that history from registered wallets and publishes a score per agent public key:

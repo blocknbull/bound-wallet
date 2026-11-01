@@ -86,7 +86,7 @@ The NEAR-native angle: on EVM, session keys are a module bolted onto a smart acc
 4. **Anomaly scoring**: an advisor on NEAR AI Cloud (TEE-attested) reviews actions before submission and can require approval on suspicious patterns. The chain stays the enforcement point; the model is advisory.
 5. **Multi-owner / Trezu**: owner becomes a Sputnik DAO or Trezu treasury so approvals are multisig.
 6. **Session templates**: one-call policies for common agent jobs (buyer, trader, payroll runner).
-7. **x402**: pay-per-request HTTP payments settled through the wallet, under the same caps.
+7. ~~x402~~ Done: `fetchWithPayment` in the SDK pays a `402 Payment Required` through `execute` (capped, queued above the threshold, on chain), with server-side `verifyPayment` checking the tx by hash. `bound fetch` and the `bound_pay_request` MCP tool expose it; `scripts/x402-demo.sh` runs it end to end.
 
 ## Hackathon tracks
 

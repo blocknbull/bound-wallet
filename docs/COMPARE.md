@@ -12,7 +12,7 @@ Binance shipped Agent OS and the Agentic Wallet in August 2026 and Agent IDs (.a
 | Sign out revokes the agent | `remove_agent` deletes the key; `suspend` keeps the key but denies everything | Plus the tripwire does it automatically. |
 | MPC keyless; agent never holds a key | Agent holds one function-call key scoped to a single method; owner never shares theirs | Different mechanism, same property: the agent cannot move funds outside the rules. |
 | All operations logged and auditable | Last 100 decisions on chain in the wallet, NEP-297 events for all, registry builds reputation from them | Ours are public and verifiable by anyone, not a dashboard inside Binance. |
-| x402 micropayments, capped per day | Not yet. Planned for hackathon week 1: pay-per-request under policy using USDC on NEAR | Their cap is $20/day; ours would be whatever the policy says. |
+| x402 micropayments, capped per day | Done: `bound fetch` / `bound_pay_request` pay a 402 through the wallet under policy | Their cap is $20/day; ours is whatever the policy says, and the owner can require approval per request. |
 | Market and limit orders, prediction markets | Cross-chain swaps via NEAR Intents under policy | Different product scope. We bound money; we do not run a trading venue. |
 | MCP endpoint, works with Claude Code, Cursor, Codex | MCP server, works with Claude Code, Claude Desktop, Codex, Cursor, OpenClaw, IronClaw | Parity. |
 | Chains: BNB, Ethereum, Base, Solana | NEAR, with cross-chain delivery to 35+ chains via Intents | |
