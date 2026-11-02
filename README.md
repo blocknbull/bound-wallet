@@ -205,6 +205,19 @@ Add to Claude Code, Claude Desktop, Cursor, Codex or any MCP client:
 
 The agent gets four tools: `bound_status` (policy, remaining budget, stats), `bound_check` (dry run), `bound_execute`, `bound_explain_denial`. It never sees a full-access key and cannot call anything on the wallet except `execute`.
 
+## Approvals in Telegram
+
+Actions above the policy threshold wait for the owner. The bot puts that queue in your pocket: each request arrives as a Telegram message with Approve / Reject buttons, a tap signs the owner call. Keys never leave the machine running the bot; Telegram only carries the decision.
+
+```bash
+# 1. Make a bot with @BotFather (/newbot), copy the token.
+# 2. First run prints your chat id when you message the bot:
+TELEGRAM_BOT_TOKEN=... BOUND_OWNER=you.near BOUND_WALLET=agents.you.near NEAR_NETWORK=mainnet node sdk/dist/bot.js
+# 3. Restart with TELEGRAM_CHAT_ID=<printed id> and leave it running.
+```
+
+Approving re-evaluates the policy on chain, so a stale request cannot be used to exceed a cap that was consumed in the meantime.
+
 ## Mainnet
 
 ```bash
