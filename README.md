@@ -268,6 +268,10 @@ Action shapes:
 
 Policy shape: see [examples/policy.buyer.json](examples/policy.buyer.json). Amounts are strings in yoctoNEAR or the token's smallest unit.
 
+## Tooling
+
+Solo project. Written with AI pair-programming (Claude Code), per hackathon rule Q-005; every dependency is in `Cargo.toml` and the `package.json` files. All code was written inside the hackathon window.
+
 ## License
 
 MIT
