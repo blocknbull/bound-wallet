@@ -100,6 +100,38 @@ agent unsuspended
 
 The example policy trips after 2 denials in an hour, so if you already triggered the denial in the quickstart, the tripwire fires one attempt earlier — same story.
 
+## Swarms: one budget, many agents
+
+A wallet can own another wallet, because `assert_owner` checks the predecessor account and `Action::FunctionCall` dispatches from the wallet account itself. That gives a swarm a budget hierarchy with no extra contract code.
+
+```
+you (owner of all three)
+  |-- lead.you.testnet   orchestrator  may only pay the two workers
+  |-- w1.you.testnet     researcher    may only pay the vendor
+  \-- w2.you.testnet     scraper       same policy, and the one we compromise
+```
+
+```bash
+OWNER=you.testnet VENDOR=vendor.testnet ./scripts/swarm-setup.sh   # deploy and register
+OWNER=you.testnet VENDOR=vendor.testnet ./scripts/swarm-demo.sh    # run the story
+```
+
+The lead agent's receiver allowlist is its own two workers, so a compromised orchestrator cannot pay anyone else, and its window cap is the rate the whole swarm can be funded. Each worker's cap bounds one worker. The demo compromises one of them and shows the other still working:
+
+```
+orchestrator funds w1, w2                      Executed, Executed
+orchestrator -> attacker.testnet               Denied  [receiver not in allowlist]
+researcher   -> vendor                         Executed
+scraper      -> attacker.testnet               Denied  [receiver not in allowlist]
+scraper      -> attacker.testnet               Denied, agent_tripped
+scraper      -> vendor (policy would allow)    Denied  [agent is suspended]
+researcher   -> vendor                         Executed
+```
+
+Nothing flows upward: a worker's key can only call `execute` on its own wallet, only the owner can change a policy or lift a suspension, and the loss ceiling for a compromised worker is that worker's window cap rather than the treasury. `swarm-setup.sh` reuses a wallet already deployed at the target account, so it is safe to re-run, and `scripts/fund.mjs` tops up a wallet's spendable balance (most of a deployed wallet's balance is locked as contract storage).
+
+The owner can instead be the lead *wallet* rather than the human, which lets the lead agent set its workers' policies and pause them. That is more autonomous and makes the human's kill switch indirect, so `docs/POSITIONING.md` explains when each pattern fits.
+
 ## What the agent's key can and cannot do
 
 - It is a normal NEAR **function-call access key** on the wallet account, restricted at the protocol level to one contract (the wallet) and one method (`execute`). It cannot transfer NEAR, call `ft_transfer`, deploy code, or add or delete keys — the chain rejects those before the contract even runs.

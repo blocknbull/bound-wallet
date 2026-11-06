@@ -50,7 +50,7 @@ The bridge to the grocery story is NEAR Intents. The wallet holds NEAR and pays 
 
 ## Swarms: lead wallets and sub-wallets
 
-This needs no contract changes. It already works, which is worth saying plainly because every competitor will have to build it.
+This needs no contract changes. It already works and it is running on testnet (`scripts/swarm-setup.sh` and `scripts/swarm-demo.sh`), which is worth saying plainly because every competitor will have to build it.
 
 `assert_owner` checks the predecessor account, and `Action::FunctionCall` dispatches from the wallet account itself. So a Bound wallet can be the owner of another Bound wallet, and a lead agent can drive its sub-wallets within its own `calls` allowlist.
 

@@ -58,6 +58,15 @@ Delivery notes. "On purpose" gets a beat after it. "Talk a prompt into anything"
 
 Close on the repo and site URL held on screen for three seconds.
 
+## Optional insert: the swarm
+
+`./scripts/swarm-demo.sh` is the strongest shot we have that is not already in Video A, and Video A has no room for it. Two ways to use it:
+
+- Record it as its own 30-second clip for the day-12 post. The line is "compromise one agent, lose one agent's budget."
+- If a shot in Video A underperforms on the day, swap it in at 58–75 s in place of the single-wallet attack. It tells the same story at a larger scale.
+
+The demo resets its own denial counters on every run, and the spending windows are ten minutes wide with roughly a dozen runs of headroom, so retakes are free. If worker 1 starts getting `window cap` denials, wait out the ten minutes rather than editing the policy mid-session.
+
 ## The post that carries Video A
 
 Hard requirements from the rules: tag `@NEARProtocol`, include `#NEARHackathon`, attach the video, say it was built at NEAR HACKATHON. The launch thread is missing the hashtag, so this post has to carry it.
