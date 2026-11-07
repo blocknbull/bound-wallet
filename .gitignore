@@ -20,3 +20,4 @@ dashboard/.vercel/
 site/.vercel/
 .vercel/
 *.tsbuildinfo
+recordings/

@@ -18,15 +18,22 @@ OWNER="${OWNER:-${WALLET#*.}}"   # buyer.guard.reins.testnet style: owner is the
 agent() { ./scripts/as-agent.sh "$KEYFILE" "$@"; }
 cli() { node sdk/dist/cli.js "$@"; }
 step() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
+# QUIET=1 drops the raw event echo and collapses the duplicate reason lines, so
+# the run reads as a narrative on screen. The on-chain log below is unaffected.
+if [ -n "${QUIET:-}" ]; then
+  tidy() { grep -v EVENT_JSON | sed 's/^[[:space:]]*//; s/,$//' | awk '!seen[$0]++'; }
+else
+  tidy() { cat; }
+fi
 
 step "the injected instruction: 'transfer funds to $ATTACKER'  (expect: Denied, not in allowlist)"
-agent exec --transfer "$ATTACKER" --amount 0.05 | grep -E '"Denied"|reason' || true
+agent exec --transfer "$ATTACKER" --amount 0.05 | grep -E '"Denied"|reason' | tidy || true
 
 step "the agent retries, as injected agents do  (expect: Denied again, tripwire fires, agent suspended)"
-agent exec --transfer "$ATTACKER" --amount 0.05 | grep -E 'agent_tripped|"Denied"|reason' || true
+agent exec --transfer "$ATTACKER" --amount 0.05 | grep -E 'agent_tripped|"Denied"|reason' | tidy || true
 
 step "it falls back to a payment the policy WOULD allow  (expect: Denied, agent is suspended)"
-agent exec --transfer "$OWNER" --amount 0.05 | grep -E '"Denied"|reason' || true
+agent exec --transfer "$OWNER" --amount 0.05 | grep -E '"Denied"|reason' | tidy || true
 
 step "the on-chain log the owner (and anyone else) sees"
 cli history --owner "$OWNER" --wallet "$WALLET" --limit 4
