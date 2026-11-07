@@ -110,6 +110,11 @@ async function main() {
           let outcome: string;
           try {
             if (verb === "approve") {
+              // A policy with dollar caps re-checks the price on approval and
+              // panics if it has gone stale, which it will whenever the owner
+              // takes longer to tap than the freshness window. Pull a fresh
+              // one first; it only costs gas and is a no-op on a manual source.
+              await owner.refreshPrice().catch(() => {});
               const r = await owner.approve(id);
               outcome =
                 r === "Executed" || (r && typeof r === "object" && !("Denied" in r))
