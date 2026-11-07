@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "bound-wallet": {
+      "command": "node",
+      "args": ["sdk/dist/mcp.js"],
+      "env": {
+        "NEAR_NETWORK": "${NEAR_NETWORK:-testnet}",
+        "BOUND_WALLET": "${BOUND_WALLET}",
+        "BOUND_AGENT_KEY": "${BOUND_AGENT_KEY}"
+      }
+    }
+  }
+}

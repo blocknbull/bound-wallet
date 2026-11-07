@@ -235,7 +235,14 @@ Add to Claude Code, Claude Desktop, Cursor, Codex or any MCP client:
 }
 ```
 
-The agent gets four tools: `bound_status` (policy, remaining budget, stats), `bound_check` (dry run), `bound_execute`, `bound_explain_denial`. It never sees a full-access key and cannot call anything on the wallet except `execute`.
+The agent gets five tools: `bound_status` (policy, remaining budget, stats), `bound_check` (dry run), `bound_execute`, `bound_explain_denial` and `bound_pay_request` (pay an HTTP 402 challenge). It never sees a full-access key and cannot call anything on the wallet except `execute`.
+
+This repo ships that config as [`.mcp.json`](.mcp.json), so inside a clone the two environment variables are the whole setup:
+
+```bash
+export BOUND_WALLET=agent.you.testnet BOUND_AGENT_KEY=ed25519:...
+claude   # approves the bound-wallet server on first run
+```
 
 ## Approvals in Telegram
 
