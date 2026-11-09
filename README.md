@@ -274,6 +274,11 @@ cargo near build non-reproducible-wasm # produces target/near/bound_wallet.wasm
 cargo test --test integration          # spins up a local NEAR sandbox
 ```
 
+Run them in that order. A bare `cargo test` fails on a fresh clone, because the
+integration tests `include_bytes!` the wasm and it does not exist until the build
+step above has run. The 13 unit tests in `cargo test --lib` need no chain and no
+wasm, so they are the quickest way to see the policy engine pass.
+
 The first sandbox run downloads a 70 MB `near-sandbox` binary into the build folder. On a slow connection that download can stall and cargo will sit at 0% CPU holding a lock. If that happens, download the binary once by hand and point cargo at it:
 
 ```bash
