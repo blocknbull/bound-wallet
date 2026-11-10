@@ -265,6 +265,11 @@ OWNER=you.near RECIPIENT=0xYourBaseAddress ./scripts/mainnet-demo.sh
 
 Deploys a wallet, points its price at Ref pool 3, registers an agent with a $10 per action / $25 per day budget and swaps allowed, and has the agent swap 1 NEAR to USDC on Base through NEAR Intents. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for what is and is not enforced.
 
+`./scripts/health.sh` reads the live state of that deployment: balance against
+each account's storage reservation, the agent key's remaining gas allowance,
+whether the kill switch is on, whether the NEAR/USD price is inside its max age,
+and whether the hosted pages answer. It exits non-zero if anything is down.
+
 ## Tests
 
 ```bash
