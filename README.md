@@ -312,6 +312,31 @@ Action shapes:
 
 Policy shape: see [examples/policy.buyer.json](examples/policy.buyer.json). Amounts are strings in yoctoNEAR or the token's smallest unit.
 
+## Security
+
+The primary track is AI Security & Defense, so the threat model is written down
+rather than implied: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) lists the
+assets, the actors, each control and what it is enforced against, and what Bound
+does not promise.
+
+The boundary in short:
+
+- The owner is the root of trust. A compromised owner is game over, by design.
+- Every limit is checked on chain, inside `execute`, before anything moves. The
+  SDK and MCP `check` calls are previews of that decision, never a substitute
+  for it.
+- Loss inside the policy is still loss. A policy that allows $50 a day to anyone
+  will lose $50 a day to a compromised agent. `approval_above` is the lever.
+- Dollar caps are a budget guard, not a settlement oracle. Ref spot is
+  manipulable within a block; use the oracle source, or owner-pushed prices, for
+  a wallet holding real money.
+- Bound bounds the money, not the model. Prompt injection that changes what the
+  agent asks for still has to fit the policy, but nothing here prevents it.
+
+Known gaps are in the same document. The one that bites first is `migrate()`: it
+reads the stored state as-is, so the next change to the policy layout has to read
+the previous struct explicitly instead.
+
 ## Tooling
 
 Solo project. Written with AI pair-programming (Claude Code), per hackathon rule Q-005; every dependency is in `Cargo.toml` and the `package.json` files. All code was written inside the hackathon window.
