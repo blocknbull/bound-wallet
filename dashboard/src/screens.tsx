@@ -147,7 +147,7 @@ export function Home({ state, walletId, network, canAct, actions, busy, go, onAd
         </button>
       </div>
 
-      <Sheet open={priceOpen} onClose={() => setPriceOpen(false)} title="NEAR/USD price" lead={q ? `The wallet is using ${q.source}. ${q.fresh ? "The price is fresh." : "The price is stale, so dollar-capped actions are denied until it is refreshed."}` : "Dollar-capped agents are denied until the wallet has a price."}>
+      <Sheet open={priceOpen} onClose={() => setPriceOpen(false)} title="NEAR/USD price" lead={q ? `The wallet is using ${q.source}. ${q.fresh ? "The price is fresh." : "The price is past its freshness window. The next agent action pulls a new one from the source before the policy is judged, so agents keep working; an owner approval needs it refreshed first."}` : "Dollar-capped agents are denied until the wallet has a price."}>
         <button className="btn" disabled={busy} onClick={() => actions.refreshPrice()} style={{ marginBottom: 14 }}>
           Refresh from on-chain source
         </button>
