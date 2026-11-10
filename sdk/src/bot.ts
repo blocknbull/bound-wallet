@@ -39,7 +39,16 @@ async function tg(method: string, body: object): Promise<any> {
     body: JSON.stringify(body),
   });
   const data = (await res.json()) as any;
-  if (!data.ok) console.error(`telegram ${method}: ${data.description}`);
+  // Throw instead of returning undefined. The callers' catch blocks are what
+  // sleep between retries, so swallowing the error here turned a bad token
+  // into a tight loop hammering the Telegram API with no delay at all.
+  if (!data.ok) {
+    const err: any = new Error(`telegram ${method}: ${data.description ?? res.status}`);
+    // 401/404 on the bot path means the token is wrong or revoked. Retrying
+    // never fixes that, so let the caller stop rather than spin forever.
+    err.fatal = res.status === 401 || res.status === 404;
+    throw err;
+  }
   return data.result;
 }
 
@@ -136,6 +145,10 @@ async function main() {
         }
       } catch (e: any) {
         console.error(`update poll failed: ${e?.message ?? e}`);
+        if (e?.fatal) {
+          console.error("that token is not valid. Check TELEGRAM_BOT_TOKEN against @BotFather.");
+          process.exit(1);
+        }
         await new Promise((r) => setTimeout(r, 3000));
       }
     }
