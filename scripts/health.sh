@@ -38,9 +38,25 @@ fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$*"; FAIL=$((FAIL+1)); }
 step() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 
 rpc() { # request_type extra-json
-  curl -s --max-time 20 -X POST "$RPC" -H 'Content-Type: application/json' \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"$1\",\"finality\":\"final\",$2}}"
+  # A free public RPC rate-limits before it refuses. That is the endpoint being
+  # busy, not the deployment being down, so back off and ask again rather than
+  # reporting a contract as unreachable.
+  local body attempt=1
+  while :; do
+    body=$(curl -s --max-time 20 -X POST "$RPC" -H 'Content-Type: application/json' \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"$1\",\"finality\":\"final\",$2}}")
+    case "$body" in
+      *-429*|"")
+        [ "$attempt" -ge 4 ] && break
+        sleep $((attempt * 2)); attempt=$((attempt + 1)); continue ;;
+    esac
+    break
+  done
+  printf '%s' "$body"
 }
+
+# True when an error payload is the RPC throttling us rather than a real fault.
+throttled() { case "$1" in *-429*|*"Rate limit"*) return 0 ;; *) return 1 ;; esac; }
 
 view() { # account method args-json -> prints the return value as JSON
   local args
@@ -69,7 +85,7 @@ reserved = r['storage_usage'] * 1e-5
 print('%.4f %.4f %.4f %d' % (bal, reserved, bal - reserved, r['storage_usage']))
 ")
   case "$out" in
-    ERR*) fail "$a unreadable: ${out#ERR }"; continue ;;
+    ERR*) if throttled "$out"; then warn "$a: the RPC throttled us, not a deployment fault"; else fail "$a unreadable: ${out#ERR }"; fi; continue ;;
   esac
   read -r bal reserved avail bytes <<<"$out"
   msg=$(printf '%-30s %8s N held, %8s N free (storage %s B)' "$a" "$bal" "$avail" "$bytes")
@@ -112,19 +128,19 @@ done <<< "$KEYS"
 step "the contracts answer, and are not paused"
 o=$(view "$WALLET" get_owner)
 case "$o" in
-  __ERR__*) fail "$WALLET get_owner: ${o#__ERR__}" ;;
+  __ERR__*) if throttled "$o"; then warn "$WALLET get_owner: the RPC throttled us, not a deployment fault"; else fail "$WALLET get_owner: ${o#__ERR__}"; fi ;;
   *)        ok "wallet owner is $o" ;;
 esac
 p=$(view "$WALLET" is_paused)
 case "$p" in
-  __ERR__*) fail "$WALLET is_paused: ${p#__ERR__}" ;;
+  __ERR__*) if throttled "$p"; then warn "$WALLET is_paused: the RPC throttled us, not a deployment fault"; else fail "$WALLET is_paused: ${p#__ERR__}"; fi ;;
   true)     fail "$WALLET is PAUSED. The kill switch is on; nothing executes until unpause()" ;;
   false)    ok "wallet is not paused" ;;
   *)        warn "$WALLET is_paused returned $p" ;;
 esac
 pr=$(view "$WALLET" get_price)
 case "$pr" in
-  __ERR__*) warn "$WALLET get_price: ${pr#__ERR__}" ;;
+  __ERR__*) if throttled "$pr"; then warn "$WALLET get_price: the RPC throttled us, not a deployment fault"; else warn "$WALLET get_price: ${pr#__ERR__}"; fi ;;
   null)     warn "no price is set, so dollar caps cannot be evaluated" ;;
   *)        # Every USD cap is checked against this price. execute() refreshes
             # it from the on-chain source before evaluating, so the agent path
@@ -142,12 +158,25 @@ print('%s %d %d %d' % (d.get('fresh'), age, d['max_age_secs'], d['cents_per_near
             if [ "$fresh" = True ] || [ "$fresh" = true ]; then
               ok "price \$$usd/NEAR, ${age}s old (limit ${maxage}s)"
             else
-              warn "price is STALE: ${age}s old against a ${maxage}s limit (cached \$$usd/NEAR). execute() refreshes itself before evaluating, but approve() panics on a USD policy and the dashboard shows the stale number. Permissionless to fix: near call $WALLET refresh_price '{}' --accountId <any>"
+              # Ref spot only stays fresh for max_age_secs, so staleness is the
+              # normal resting state, not an incident: execute() refreshes before
+              # it evaluates. It only breaks something when an action is already
+              # queued, because approve() panics on a stale price instead.
+              npend=$(view "$WALLET" get_pending | python3 -c "
+import sys, json
+try: print(len(json.load(sys.stdin)))
+except Exception: print(-1)
+")
+              if [ "$npend" -gt 0 ] 2>/dev/null; then
+                warn "price is stale (${age}s old, limit ${maxage}s) and $npend action(s) are queued. approve() panics on a stale price: refresh before approving. near call $WALLET refresh_price '{}' --accountId <any>"
+              else
+                ok "price \$$usd/NEAR, ${age}s old (past the ${maxage}s window, but nothing is queued and execute() refreshes itself)"
+              fi
             fi ;;
 esac
 r=$(view "$REGISTRY" get_owner)
 case "$r" in
-  __ERR__*) fail "$REGISTRY get_owner: ${r#__ERR__}" ;;
+  __ERR__*) if throttled "$r"; then warn "$REGISTRY get_owner: the RPC throttled us, not a deployment fault"; else fail "$REGISTRY get_owner: ${r#__ERR__}"; fi ;;
   *)        ok "registry owner is $r" ;;
 esac
 
