@@ -1,0 +1,20 @@
+# Is the live deployment still up? Runs daily, and on demand.
+#
+# The hosted demo has to stay reachable through judging (16-18 Nov) and ideally
+# to 25 Nov. Nothing here drains on its own, so a failure means something
+# changed: an account ran out of usable balance, the kill switch went on, or a
+# page stopped answering. A failed run emails the repo owner.
+name: health
+
+on:
+  schedule:
+    - cron: "17 7 * * *" # 07:17 UTC daily, an off-minute on purpose
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check mainnet and the hosted pages
+        run: ./scripts/health.sh
