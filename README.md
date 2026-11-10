@@ -281,8 +281,28 @@ cargo test --test integration          # spins up a local NEAR sandbox
 
 Run them in that order. A bare `cargo test` fails on a fresh clone, because the
 integration tests `include_bytes!` the wasm and it does not exist until the build
-step above has run. The 13 unit tests in `cargo test --lib` need no chain and no
+step above has run. The 18 tests in `cargo test --lib` need no chain and no
 wasm, so they are the quickest way to see the policy engine pass.
+
+Five of those are property tests over randomized inputs (`contract/src/policy.rs`,
+module `props`). They assert what must hold for every input rather than for the
+cases someone thought to write down:
+
+- `evaluate` never panics, on any input, including policies today's `validate`
+  would reject. A denial has to be a returned `Err` so the caller can write it
+  to history and emit the event; a panic reverts the transaction, records
+  nothing, and the tripwire never counts it.
+- Nothing comes back `Ok` above a cap: per-action, rolling window, rate limit,
+  USD, and per-token.
+- A receiver allowlist is never bypassed.
+- Spending more never unlocks what spending less forbade.
+
+The fifth, `generators_are_not_vacuous`, guards the other four. A property test
+that only ever sees denials passes while proving nothing, and the output looks
+exactly the same as one that proves a great deal. It samples the generator and
+fails unless a real share of cases are allowed and both sides of the allowlist
+check are reached. That guard exists because the first version of these tests
+allowed 8 cases out of 512 and reached the allowlist zero times.
 
 The first sandbox run downloads a 70 MB `near-sandbox` binary into the build folder. On a slow connection that download can stall and cargo will sit at 0% CPU holding a lock. If that happens, download the binary once by hand and point cargo at it:
 

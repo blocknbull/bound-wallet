@@ -684,3 +684,439 @@ mod tests {
         assert!(evaluate(&p, &Usage::default(), None, &a, 100, None).is_err());
     }
 }
+
+/// Property tests for the policy engine.
+///
+/// The hand-written tests above check the cases we thought of. These check the
+/// invariants that must hold for every input: that a denial is always a
+/// returned `Err` and never a panic, that nothing comes back `Ok` above a cap,
+/// that an allowlist cannot be stepped around, and that spending more never
+/// unlocks what spending less forbade.
+///
+/// Two families of generator, on purpose. `any_policy` is deliberately hostile
+/// and is used only for the no-panic property. Everything else uses `case`,
+/// which draws the action from the policy that will judge it: sizes around the
+/// caps, receivers from the allowlist plus one outsider. Generating the two
+/// independently makes nearly every case a denial on size alone, and a
+/// property that only ever sees denials passes without proving anything.
+/// `generators_are_not_vacuous` keeps that honest.
+#[cfg(test)]
+mod props {
+    use super::*;
+    use proptest::prelude::*;
+
+    const ONE_NEAR: u128 = 10u128.pow(24);
+
+    fn account() -> impl Strategy<Value = AccountId> {
+        prop_oneof![
+            Just("alice.near"),
+            Just("bob.near"),
+            Just("vendor.near"),
+            Just("attacker.near"),
+            Just("usdc.near"),
+            Just("dex.near"),
+        ]
+        .prop_map(|s| s.parse().unwrap())
+    }
+
+    fn acc(s: &str) -> AccountId {
+        s.parse().unwrap()
+    }
+
+    /// Zero, one, realistic sizes, and the top of the range, where anything
+    /// that is not saturating arithmetic overflows.
+    fn wild_amount() -> impl Strategy<Value = u128> {
+        prop_oneof![
+            Just(0u128),
+            Just(1u128),
+            1u128..10u128.pow(27),
+            (u128::MAX - 1_000)..=u128::MAX,
+        ]
+    }
+
+    fn wild_near() -> impl Strategy<Value = NearToken> {
+        wild_amount().prop_map(NearToken::from_yoctonear)
+    }
+
+    fn wild_usage() -> impl Strategy<Value = Usage> {
+        (any::<u64>(), wild_amount(), any::<u32>(), any::<u64>()).prop_map(
+            |(window_start, spent, count, spent_usd_cents)| Usage {
+                window_start: U64(window_start),
+                spent: U128(spent),
+                count,
+                spent_usd_cents,
+            },
+        )
+    }
+
+    fn wild_action() -> impl Strategy<Value = Action> {
+        prop_oneof![
+            (account(), wild_near())
+                .prop_map(|(receiver, amount)| Action::Transfer { receiver, amount }),
+            (account(), account(), wild_amount()).prop_map(|(token, receiver, a)| {
+                Action::FtTransfer { token, receiver, amount: U128(a), memo: None }
+            }),
+            (account(), wild_amount(), prop::option::of(account())).prop_map(
+                |(deposit_address, a, token)| Action::IntentsDeposit {
+                    deposit_address,
+                    amount: U128(a),
+                    token,
+                    destination_asset: "nep141:base-0x833.omft.near".into(),
+                    recipient: "0xabc".into(),
+                    quote_ref: "q1".into(),
+                }
+            ),
+            (account(), "[a-z_]{1,8}", wild_near()).prop_map(|(contract, method, deposit)| {
+                Action::FunctionCall {
+                    contract,
+                    method,
+                    args: "{}".into(),
+                    deposit,
+                    gas_tgas: None,
+                }
+            }),
+        ]
+    }
+
+    prop_compose! {
+        /// Anything at all, including policies `validate` would reject. An
+        /// upgraded wallet can still hold one written by an older version of
+        /// the struct, so `evaluate` has to survive it.
+        fn any_policy()(
+            max_per_tx in wild_near(), window_cap in wild_near(), window_secs in any::<u64>(),
+            max_tx_per_window in any::<u32>(),
+            allow in prop::collection::vec(account(), 0..3),
+            use_allowlist in any::<bool>(),
+            calls in prop::collection::vec(
+                (account(), prop::collection::vec("[a-z_]{1,8}", 0..3))
+                    .prop_map(|(contract, methods)| CallRule { contract, methods }), 0..3),
+            tokens in prop::collection::vec(
+                (account(), wild_amount(), wild_amount()).prop_map(|(token, a, b)| TokenRule {
+                    token, max_per_tx: U128(a), window_cap: U128(b),
+                }), 0..3),
+            hours in prop::option::of((any::<u8>(), any::<u8>())),
+            expires_at in prop::option::of(any::<u64>()),
+            approval_above in prop::option::of(wild_near()),
+            per_tx_usd in prop::option::of(any::<u64>()),
+            window_usd in prop::option::of(any::<u64>()),
+            allow_intents in any::<bool>(),
+            approve_new_receivers in any::<bool>(),
+        ) -> Policy {
+            Policy {
+                max_per_tx, window_cap, window_secs, max_tx_per_window,
+                receivers: if use_allowlist { ReceiverRule::Allowlist(allow) } else { ReceiverRule::Any },
+                calls, tokens,
+                active_hours_utc: hours.map(|(start_hour, end_hour)| ActiveHours { start_hour, end_hour }),
+                expires_at: expires_at.map(U64),
+                approval_above,
+                max_per_tx_usd_cents: per_tx_usd,
+                window_cap_usd_cents: window_usd,
+                allow_intents,
+                tripwire: None,
+                approve_new_receivers,
+            }
+        }
+    }
+
+    prop_compose! {
+        /// A policy an owner could plausibly store: every assertion in
+        /// `validate` holds, and the caps are in a range an action can
+        /// realistically sit either side of.
+        ///
+        /// `expires_at` and `active_hours_utc` are left unset here. They are
+        /// gates that reject before any cap is consulted, so switching them on
+        /// would push most cases back into blanket denial and hollow out the
+        /// properties below. Both are covered by the unit tests above and by
+        /// `never_panics`.
+        fn sane_policy()(
+            per_tx in 1u128..=50, window_mult in 1u128..=20,
+            window_secs in 60u64..=86_400, max_tx_per_window in 0u32..8,
+            allow in prop::collection::vec(account(), 1..4),
+            use_allowlist in any::<bool>(),
+            token_a in account(), token_cap in 1_000u128..=1_000_000_000,
+            call_target in account(), method in "[a-z_]{1,8}",
+            usd in prop::option::of((100u64..=5_000, 1u128..=20)),
+            allow_intents in any::<bool>(),
+            approval in prop::option::of(1u128..=50),
+            approve_new_receivers in any::<bool>(),
+        ) -> Policy {
+            let max_per_tx = per_tx * ONE_NEAR;
+            let window_cap = max_per_tx * window_mult;
+            let (per_tx_usd, window_usd) = match usd {
+                Some((cents, mult)) => (Some(cents), Some(cents.saturating_mul(mult as u64))),
+                None => (None, None),
+            };
+            Policy {
+                max_per_tx: NearToken::from_yoctonear(max_per_tx),
+                window_cap: NearToken::from_yoctonear(window_cap),
+                window_secs,
+                max_tx_per_window,
+                receivers: if use_allowlist { ReceiverRule::Allowlist(allow) } else { ReceiverRule::Any },
+                calls: vec![CallRule { contract: call_target, methods: vec![method] }],
+                tokens: vec![TokenRule {
+                    token: token_a,
+                    max_per_tx: U128(token_cap),
+                    window_cap: U128(token_cap.saturating_mul(10)),
+                }],
+                active_hours_utc: None,
+                expires_at: None,
+                approval_above: approval.map(|n| NearToken::from_yoctonear(n * ONE_NEAR)),
+                max_per_tx_usd_cents: per_tx_usd,
+                window_cap_usd_cents: window_usd,
+                allow_intents,
+                tripwire: None,
+                approve_new_receivers,
+            }
+        }
+    }
+
+    type Case = (Policy, Usage, Option<Usage>, Action, u64, Option<u64>);
+
+    /// A policy together with an action drawn to suit it, so a useful share of
+    /// cases land near a limit instead of a thousand NEAR past it.
+    fn case() -> impl Strategy<Value = Case> {
+        sane_policy().prop_flat_map(|p| {
+            let per_tx = p.max_per_tx.as_yoctonear().max(1);
+            let window = p.window_cap.as_yoctonear().max(1);
+
+            // Allowed receivers plus one outsider, so both sides of the
+            // allowlist check are exercised rather than only the happy path.
+            let mut pool = match &p.receivers {
+                ReceiverRule::Any => vec![acc("alice.near"), acc("bob.near"), acc("vendor.near")],
+                ReceiverRule::Allowlist(l) => l.clone(),
+            };
+            pool.push(acc("attacker.near"));
+
+            let rule = p.tokens[0].clone();
+            let tok_cap = rule.max_per_tx.0.max(1);
+            let call = p.calls[0].clone();
+            let allowed_method = call.methods[0].clone();
+
+            let action = prop_oneof![
+                3 => (prop::sample::select(pool.clone()), 0u128..=per_tx.saturating_mul(2))
+                        .prop_map(|(receiver, a)| Action::Transfer {
+                            receiver, amount: NearToken::from_yoctonear(a),
+                        }),
+                2 => (
+                        prop::sample::select(pool.clone()),
+                        prop_oneof![Just(rule.token.clone()), Just(acc("dex.near"))],
+                        0u128..=tok_cap.saturating_mul(2),
+                     ).prop_map(|(receiver, token, a)| Action::FtTransfer {
+                            token, receiver, amount: U128(a), memo: None,
+                        }),
+                2 => (prop::sample::select(pool.clone()), 0u128..=per_tx.saturating_mul(2),
+                      prop::option::of(Just(rule.token.clone())))
+                        .prop_map(|(deposit_address, a, token)| Action::IntentsDeposit {
+                            deposit_address,
+                            amount: U128(a),
+                            token,
+                            destination_asset: "nep141:base-0x833.omft.near".into(),
+                            recipient: "0xabc".into(),
+                            quote_ref: "q1".into(),
+                        }),
+                2 => (
+                        prop_oneof![Just(call.contract.clone()), Just(acc("attacker.near"))],
+                        prop_oneof![Just(allowed_method.clone()), Just("drain".to_string())],
+                        0u128..=per_tx.saturating_mul(2),
+                     ).prop_map(|(contract, method, d)| Action::FunctionCall {
+                            contract, method, args: "{}".into(),
+                            deposit: NearToken::from_yoctonear(d),
+                            gas_tgas: None,
+                        }),
+            ];
+
+            // Usage sits inside the window and below the caps, which is the
+            // state a live agent is actually in.
+            let max_count = p.max_tx_per_window.max(1);
+            let usage = (0u128..=window, 0u32..=max_count, 0u64..=5_000).prop_map(
+                move |(spent, count, usd)| Usage {
+                    window_start: U64(1_000 * NS_PER_SEC),
+                    spent: U128(spent),
+                    count,
+                    spent_usd_cents: usd,
+                },
+            );
+            let token_usage = prop::option::of(
+                (0u128..=rule.window_cap.0.max(1)).prop_map(|spent| Usage {
+                    window_start: U64(1_000 * NS_PER_SEC),
+                    spent: U128(spent),
+                    count: 0,
+                    spent_usd_cents: 0,
+                }),
+            );
+            // Inside the window that usage started, so nothing rolls by accident.
+            let now = (1_000u64..=1_060).prop_map(|s| s * NS_PER_SEC);
+            // A plausible NEAR/USD price, so USD caps are actually evaluated
+            // instead of short-circuiting on a missing price.
+            let price = prop::option::of(100u64..=1_000);
+
+            (Just(p), usage, token_usage, action, now, price)
+        })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(512))]
+
+        /// The audit trail depends on a denial being a returned `Err`: the
+        /// caller writes it to history and emits the event. A panic reverts
+        /// the transaction instead, so the denial leaves no record and the
+        /// tripwire never counts it. `evaluate` must never panic, on any
+        /// input, valid policy or not.
+        #[test]
+        fn never_panics(
+            p in any_policy(), u in wild_usage(), tu in prop::option::of(wild_usage()),
+            a in wild_action(), now in any::<u64>(), price in prop::option::of(any::<u64>()),
+        ) {
+            let _ = evaluate(&p, &u, tu.as_ref(), &a, now, price);
+        }
+
+        /// Nothing comes back `Ok` that breaks a cap. This is the promise the
+        /// whole product makes, checked against the same rolled usage the
+        /// evaluator judged against.
+        #[test]
+        fn allowed_actions_stay_inside_every_cap((p, u, tu, a, now, price) in case()) {
+            let charge = match evaluate(&p, &u, tu.as_ref(), &a, now, price) {
+                Ok(c) => c,
+                Err(_) => return Ok(()),
+            };
+
+            let mut nu = u.clone();
+            nu.roll(now, p.window_secs);
+
+            prop_assert!(charge.native <= p.max_per_tx, "native above max_per_tx");
+            prop_assert!(
+                nu.spent.0.saturating_add(charge.native.as_yoctonear())
+                    <= p.window_cap.as_yoctonear(),
+                "native window cap exceeded"
+            );
+            if p.max_tx_per_window > 0 {
+                prop_assert!(nu.count < p.max_tx_per_window, "rate limit exceeded");
+            }
+            if let Some(max) = p.max_per_tx_usd_cents {
+                prop_assert!(charge.usd_cents <= max, "usd per-action cap exceeded");
+            }
+            if let Some(cap) = p.window_cap_usd_cents {
+                prop_assert!(
+                    nu.spent_usd_cents.saturating_add(charge.usd_cents) <= cap,
+                    "usd window cap exceeded"
+                );
+            }
+            if let Some((token, amt)) = &charge.token {
+                let rule = match p.token_rule(token) {
+                    Some(r) => r,
+                    None => return Err(TestCaseError::fail("charged a token with no rule")),
+                };
+                prop_assert!(*amt <= rule.max_per_tx.0, "token per-action cap exceeded");
+                let mut t = tu.clone().unwrap_or_default();
+                t.roll(now, p.window_secs);
+                prop_assert!(
+                    t.spent.0.saturating_add(*amt) <= rule.window_cap.0,
+                    "token window cap exceeded"
+                );
+            }
+        }
+
+        /// The allowlist is what stops a compromised agent paying an address
+        /// the owner never approved, so it has to hold for every input, not
+        /// only the one in the attack demo. `IntentsDeposit` is deliberately
+        /// out of scope: its destination is a per-quote address nobody can
+        /// know in advance, which is why the amount caps carry that case.
+        #[test]
+        fn an_allowlist_is_never_bypassed((p, u, tu, a, now, price) in case()) {
+            if evaluate(&p, &u, tu.as_ref(), &a, now, price).is_err() {
+                return Ok(());
+            }
+            if let ReceiverRule::Allowlist(list) = &p.receivers {
+                match &a {
+                    Action::Transfer { receiver, .. } | Action::FtTransfer { receiver, .. } => {
+                        prop_assert!(
+                            list.contains(receiver),
+                            "paid a receiver outside the allowlist"
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        /// Spending more can never unlock what spending less forbade. Both
+        /// evaluations are pinned inside one window so neither rolls, leaving
+        /// how much has been spent as the only difference between them.
+        #[test]
+        fn more_usage_never_permits_more(
+            (p, base, _tu, a, now, price) in case(),
+            extra_spent in 0u128..(50 * ONE_NEAR), extra_count in 0u32..8,
+            extra_usd in 0u64..5_000,
+        ) {
+            let mut more = base.clone();
+            more.spent = U128(base.spent.0.saturating_add(extra_spent));
+            more.count = base.count.saturating_add(extra_count);
+            more.spent_usd_cents = base.spent_usd_cents.saturating_add(extra_usd);
+
+            if evaluate(&p, &base, None, &a, now, price).is_err() {
+                prop_assert!(
+                    evaluate(&p, &more, None, &a, now, price).is_err(),
+                    "denied on less usage, allowed on more"
+                );
+            }
+        }
+    }
+
+    /// A property that only ever sees denials passes while proving nothing,
+    /// and nothing in the test output would say so. This fails if the
+    /// generators drift back to that state: it samples `case()` and insists a
+    /// real share of cases are allowed, that token charges happen, and that
+    /// the allowlist check is actually reached with both insiders and
+    /// outsiders. The first version of these tests allowed 8 cases in 512 and
+    /// reached the allowlist zero times.
+    #[test]
+    fn generators_are_not_vacuous() {
+        use proptest::strategy::ValueTree;
+        use proptest::test_runner::TestRunner;
+
+        let mut runner = TestRunner::deterministic();
+        let (mut allowed, mut token_charges, mut inside, mut outside) = (0, 0, 0, 0);
+        const N: usize = 1_000;
+
+        for _ in 0..N {
+            let (p, u, tu, a, now, price) =
+                case().new_tree(&mut runner).unwrap().current();
+            let listed = match (&p.receivers, &a) {
+                (
+                    ReceiverRule::Allowlist(l),
+                    Action::Transfer { receiver, .. } | Action::FtTransfer { receiver, .. },
+                ) => Some(l.contains(receiver)),
+                _ => None,
+            };
+            match evaluate(&p, &u, tu.as_ref(), &a, now, price) {
+                Ok(c) => {
+                    allowed += 1;
+                    if c.token.is_some() {
+                        token_charges += 1;
+                    }
+                    if listed == Some(true) {
+                        inside += 1;
+                    }
+                }
+                Err(_) => {
+                    if listed == Some(false) {
+                        outside += 1;
+                    }
+                }
+            }
+        }
+
+        println!(
+            "case() coverage over {N}: {allowed} allowed, {token_charges} token charges, \
+             allowlist reached {} times ({inside} inside, {outside} outside)",
+            inside + outside
+        );
+        assert!(
+            allowed >= N / 10,
+            "only {allowed}/{N} cases were allowed; the cap properties are nearly vacuous"
+        );
+        assert!(token_charges >= 10, "only {token_charges}/{N} token charges");
+        assert!(inside >= 10, "allowlist allowed only {inside}/{N} times");
+        assert!(outside >= 10, "allowlist denied only {outside}/{N} times");
+    }
+}
