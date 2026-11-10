@@ -63,10 +63,25 @@ function describe(a: Action): string {
 }
 
 async function main() {
+  // Check the token before anything else. A bad or revoked one answers 404 on
+  // every call, and finding that out inside the poll loop reads as the wallet
+  // being broken rather than the token being wrong.
+  let me: any;
+  try {
+    me = await tg("getMe", {});
+  } catch (e: any) {
+    console.error(String(e?.message ?? e));
+    console.error(
+      "TELEGRAM_BOT_TOKEN is not a working token. Open @BotFather, pick the bot,\n" +
+        "and use /token to read the current one (or /revoke to issue a new one).",
+    );
+    process.exit(1);
+  }
+
   const owner = await BoundOwner.load(NETWORK, OWNER!, WALLET!);
   const notified = new Set<number>();
   let updateOffset = 0;
-  console.log(`approvals bot up: ${WALLET} (${NETWORK}), owner ${OWNER}`);
+  console.log(`approvals bot up: @${me?.username} -> ${WALLET} (${NETWORK}), owner ${OWNER}`);
   if (!CHAT) console.log("TELEGRAM_CHAT_ID not set — send the bot any message and I'll print your chat id.");
 
   // Watch the queue.
